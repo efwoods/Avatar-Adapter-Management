@@ -43,6 +43,8 @@ users/{user_id}/
 │   ├── core
 │   ├── main.py
 │   └── service
+├── docker-compose.yml
+├── Dockerfile.dev
 ├── LICENSE
 ├── prompt.md
 └── README.md
