@@ -1,0 +1,13 @@
+# docker-compose.yml - Local development and testing
+services:
+  chroma-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    image: nn-avatar-adapter-management
+    container_name: nn-avatar-adapter-management
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./app:/app
+    # environment:
