@@ -26,7 +26,7 @@ app.add_middleware(
 # Include routers
 app.include_router(adapters.router, prefix="/adapters", tags=["adapters"])
 app.include_router(training_data.router, prefix="/training-data", tags=["training-data"])
-app.include_router(adapters.router, prefix="/persistence", tags=["persistence"])
+app.include_router(persistence.router, prefix="/persistence", tags=["persistence"])
 
 
 @app.get("/health")
