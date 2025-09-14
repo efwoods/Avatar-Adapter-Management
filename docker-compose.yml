@@ -7,7 +7,14 @@ services:
     image: nn-avatar-adapter-management
     container_name: nn-avatar-adapter-management
     ports:
-      - "8089:8089"
+      - "8090:8090"
     volumes:
       - ./app:/app
-    # environment:
+    environment:
+      - DEBUG=true
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+    command: uvicorn main:app --host 0.0.0.0 --port 8090 --reload
+    restart: unless-stopped
