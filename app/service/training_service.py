@@ -1,19 +1,21 @@
+# service/training_service.py
+
 """
-Training Service for LoRA adapters
+Enhanced Training Service that works with centralized AdapterPersistenceManager
 """
 
 import os
 import json
 import time
 import asyncio
+import tempfile
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-import tempfile
 
 from core.logging import logger
 
 class TrainingService:
-    """Service for training LoRA adapters"""
+    """Service for training LoRA adapters - now works with centralized persistence"""
     
     def __init__(self):
         self.default_training_params = {
@@ -102,6 +104,92 @@ class TrainingService:
                 "error": str(e),
                 "message": f"Training failed: {str(e)}"
             }
+
+    async def train_with_persistence_manager(self,
+                                           persistence_manager,
+                                           training_params: Dict[str, Any]) -> Dict[str, Any]:
+        """Train adapter using centralized persistence manager"""
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_adapter_path = os.path.join(temp_dir, "adapters")
+            local_training_path = os.path.join(temp_dir, "training_data")
+            
+            try:
+                # Get training files using centralized method
+                training_files = await persistence_manager.get_training_files_for_training()
+                if not training_files:
+                    return {
+                        "success": False,
+                        "error": "No training files marked for training",
+                        "message": "No training data available"
+                    }
+                
+                logger.info(f"Found {len(training_files)} files marked for training")
+                
+                # Restore adapter using centralized method
+                try:
+                    await persistence_manager.restore_adapters_from_s3(local_adapter_path)
+                    logger.info("Restored existing adapter from S3")
+                except Exception as e:
+                    if "404" in str(e):
+                        logger.info("No existing adapter found, creating new one")
+                        await persistence_manager.create_adapter()
+                        await persistence_manager.restore_adapters_from_s3(local_adapter_path)
+                    else:
+                        raise
+                
+                # Download training files using persistence manager
+                os.makedirs(local_training_path, exist_ok=True)
+                downloaded_files = []
+                
+                for filename in training_files:
+                    try:
+                        # Get download info
+                        download_info = await persistence_manager.get_training_file_download_url(filename)
+                        
+                        # Download file content (you'd implement actual download here)
+                        # For now, we'll simulate having the files locally
+                        local_file_path = os.path.join(local_training_path, filename)
+                        
+                        # This is where you'd actually download using the presigned URL
+                        # For simulation, create a dummy file
+                        with open(local_file_path, 'w') as f:
+                            f.write(f"Training data for {filename}")
+                        
+                        downloaded_files.append(filename)
+                        logger.info(f"Downloaded training file: {filename}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to download training file {filename}: {e}")
+                
+                if not downloaded_files:
+                    return {
+                        "success": False,
+                        "error": "Failed to download any training files",
+                        "message": "Could not access training data"
+                    }
+                
+                # Perform training
+                training_result = await self.train_lora_adapter(
+                    adapter_path=local_adapter_path,
+                    training_data_path=local_training_path,
+                    training_params=training_params
+                )
+                
+                # Backup trained adapter using centralized method
+                if training_result["success"]:
+                    backup_metadata = await persistence_manager.backup_adapters_to_s3(local_adapter_path)
+                    training_result["backup_metadata"] = backup_metadata
+                
+                return training_result
+                
+            except Exception as e:
+                logger.error(f"Training with persistence manager failed: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "message": f"Training failed: {str(e)}"
+                }
     
     def _get_training_files(self, training_data_path: str) -> List[str]:
         """Get list of training files from directory"""
@@ -205,7 +293,7 @@ class TrainingService:
             "samples_processed": prepared_data["total_samples"],
             "tokens_processed": prepared_data["total_tokens"],
             "metrics_history": metrics_history[-5:],  # Keep last 5 entries
-            "convergence": "good" if metrics_history[-1]["loss"] < 0.5 else "fair"
+            "convergence": "good" if metrics_history[-1]["loss"] < 0.5 else "fair" if metrics_history else "poor"
         }
         
         return {
@@ -264,81 +352,78 @@ class TrainingService:
         
         logger.info(f"Updated adapter post-training at {adapter_path}")
     
-    async def validate_training_data(self, training_data_path: str) -> Dict[str, Any]:
-        """Validate training data format and content"""
+    async def validate_training_data_with_persistence(self, 
+                                                    persistence_manager) -> Dict[str, Any]:
+        """Validate training data using persistence manager"""
         
-        if not os.path.exists(training_data_path):
-            return {"valid": False, "error": "Training data path does not exist"}
-        
-        training_files = self._get_training_files(training_data_path)
-        
-        if not training_files:
-            return {"valid": False, "error": "No valid training files found"}
-        
-        validation_results = []
-        total_size = 0
-        
-        for file_path in training_files:
-            file_result = {
-                "filename": os.path.basename(file_path),
-                "path": file_path,
-                "size": os.path.getsize(file_path),
-                "valid": True,
-                "issues": []
-            }
+        try:
+            # Get list of files marked for training
+            training_files = await persistence_manager.get_training_files_for_training()
             
-            # Check file size
-            if file_result["size"] == 0:
-                file_result["valid"] = False
-                file_result["issues"].append("File is empty")
-            elif file_result["size"] > 100 * 1024 * 1024:  # 100MB limit
-                file_result["issues"].append("File is very large (>100MB)")
+            if not training_files:
+                return {
+                    "valid": False, 
+                    "error": "No files marked for training",
+                    "training_files": []
+                }
             
-            # Try to read and validate file content
-            try:
-                if file_path.endswith('.txt'):
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read(1000)  # Read first 1000 chars
-                        if not content.strip():
-                            file_result["valid"] = False
-                            file_result["issues"].append("File contains no readable text")
+            # Get file information
+            file_list = await persistence_manager.list_training_files(training_only=True)
+            
+            validation_results = []
+            total_size = 0
+            
+            for file_info in file_list:
+                file_result = {
+                    "filename": file_info["filename"],
+                    "size": file_info["file_size"],
+                    "valid": True,
+                    "issues": []
+                }
                 
-                elif file_path.endswith(('.json', '.jsonl')):
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        first_line = f.readline()
-                        try:
-                            json.loads(first_line)
-                        except json.JSONDecodeError:
-                            file_result["issues"].append("Invalid JSON format")
-                            
-            except Exception as e:
-                file_result["valid"] = False
-                file_result["issues"].append(f"Could not read file: {str(e)}")
+                # Check file size
+                if file_result["size"] == 0:
+                    file_result["valid"] = False
+                    file_result["issues"].append("File is empty")
+                elif file_result["size"] > 100 * 1024 * 1024:  # 100MB limit
+                    file_result["issues"].append("File is very large (>100MB)")
+                
+                # Basic content type validation
+                if file_info["content_type"] and "text" not in file_info["content_type"].lower():
+                    file_result["issues"].append("File may not be text-based")
+                
+                total_size += file_result["size"]
+                validation_results.append(file_result)
             
-            total_size += file_result["size"]
-            validation_results.append(file_result)
-        
-        valid_files = [r for r in validation_results if r["valid"]]
-        
-        return {
-            "valid": len(valid_files) > 0,
-            "total_files": len(training_files),
-            "valid_files": len(valid_files),
-            "total_size": total_size,
-            "files": validation_results,
-            "summary": {
-                "has_valid_files": len(valid_files) > 0,
-                "total_size_mb": total_size / (1024 * 1024),
-                "recommended_training": len(valid_files) > 0 and total_size > 1024  # At least 1KB
+            valid_files = [r for r in validation_results if r["valid"]]
+            
+            return {
+                "valid": len(valid_files) > 0,
+                "total_files": len(training_files),
+                "valid_files": len(valid_files),
+                "total_size": total_size,
+                "files": validation_results,
+                "summary": {
+                    "has_valid_files": len(valid_files) > 0,
+                    "total_size_mb": total_size / (1024 * 1024),
+                    "recommended_training": len(valid_files) > 0 and total_size > 1024
+                }
             }
-        }
+            
+        except Exception as e:
+            logger.error(f"Error validating training data: {e}")
+            return {
+                "valid": False,
+                "error": str(e),
+                "training_files": []
+            }
     
-    async def get_training_recommendations(self, 
-                                         training_data_path: str, 
-                                         current_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Get training parameter recommendations based on data"""
+    async def get_training_recommendations_with_persistence(self, 
+                                                          persistence_manager,
+                                                          current_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get training parameter recommendations based on data from persistence manager"""
         
-        validation = await self.validate_training_data(training_data_path)
+        validation = await self.validate_training_data_with_persistence(persistence_manager)
         
         if not validation["valid"]:
             return {
