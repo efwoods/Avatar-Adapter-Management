@@ -1,3 +1,5 @@
+# api/adapters.py
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
 from typing import Optional, Dict, Any
