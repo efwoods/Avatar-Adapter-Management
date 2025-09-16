@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # API Configuration
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
     
+    USER_ID: str
+    
     class Config:
         env_file = ".env"
 

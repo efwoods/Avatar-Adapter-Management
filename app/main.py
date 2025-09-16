@@ -117,6 +117,3 @@ async def health_check():
 @app.get("/", tags=["📖 Documentation"])
 async def root(request: Request):
     return RedirectResponse(url=f"{request.scope.get('root_path', '')}/docs")
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
