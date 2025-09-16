@@ -12,12 +12,12 @@ from db.schema.models import (
     AdapterRestoreResponse,
 )
 
-
+from service.persistence_service import get_adapter_persistence_manager
 from core.logging import logger
 
 router = APIRouter()
 
-# Routes - all using the dependency from main.py
+# Routes - all using the dependency from service.py
 @router.post("/adapters/backup/{avatar_id}",
     response_model=AdapterBackupResponse,
     status_code=status.HTTP_201_CREATED,
@@ -30,7 +30,7 @@ async def backup_adapters_to_s3(
 ):
     """Backup adapter files to S3"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         backup_info = await manager.backup_adapters_to_s3(local_adapter_path)
         
@@ -58,7 +58,7 @@ async def backup_training_data_to_s3(
 ):
     """Backup training data to S3"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         backup_info = await manager.backup_training_data_to_s3(local_training_data_path)
         
@@ -85,7 +85,7 @@ async def restore_adapters_from_s3(
 ):
     """Restore adapter files from S3"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         await manager.restore_adapters_from_s3(local_adapter_path)
         
@@ -111,7 +111,7 @@ async def restore_training_data_from_s3(
 ):
     """Restore training data from S3"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         await manager.restore_training_data_from_s3(local_training_data_path)
         
@@ -136,7 +136,7 @@ async def list_adapter_backups(
 ):
     """List available adapter backups"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         backups = await manager.list_adapter_backups()
         
@@ -161,7 +161,7 @@ async def delete_adapter_backup(
 ):
     """Delete adapter backup from S3"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         
         if backup_type == "adapters":
@@ -206,7 +206,7 @@ async def get_adapter_persistence_status(
 ):
     """Get adapter persistence status"""
     try:
-        from main import get_adapter_persistence_manager
+        
         manager = get_adapter_persistence_manager(avatar_id)
         
         # Test S3 connectivity
