@@ -1,367 +1,27 @@
-I need you to complete the adpater and training_data endpoint routes and use the persistence capabilities already defined in the code.
-
-(base) linux-pc@pc:~/gh/projects/NeuralNexus/Avatar-Adapter-Management$ tree .
-.
-├── app
-│   ├── api
-│   │   ├── adapters.py
-│   │   ├── __init__.py
-│   │   ├── persistence.py
-│   │   ├── __pycache__
-│   │   │   ├── adapters.cpython-311.pyc
-│   │   │   ├── __init__.cpython-311.pyc
-│   │   │   ├── persistence.cpython-311.pyc
-│   │   │   └── training_data.cpython-311.pyc
-│   │   └── training_data.py
-│   ├── classes
-│   │   ├── AdapterPersistenceManager.py
-│   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── AdapterPersistenceManager.cpython-311.pyc
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── lora_manager.cpython-311.pyc
-│   ├── core
-│   │   ├── config.py
-│   │   ├── __init__.py
-│   │   ├── logging.py
-│   │   └── __pycache__
-│   │       ├── config.cpython-311.pyc
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── logging.cpython-311.pyc
-│   ├── db
-│   │   ├── __init__.py
-│   │   ├── __pycache__
-│   │   │   └── __init__.cpython-311.pyc
-│   │   └── schema
-│   │       ├── __init__.py
-│   │       ├── models.py
-│   │       └── __pycache__
-│   │           ├── __init__.cpython-311.pyc
-│   │           └── models.cpython-311.pyc
-│   ├── __init__.py
-│   ├── main.py
-│   ├── __pycache__
-│   │   └── main.cpython-311.pyc
-│   └── service
-│       ├── __init__.py
-│       ├── persistence_service.py
-│       ├── __pycache__
-│       │   ├── __init__.cpython-311.pyc
-│       │   ├── persistence_service.cpython-311.pyc
-│       │   ├── s3_service.cpython-311.pyc
-│       │   └── training_service.cpython-311.pyc
-│       ├── s3_service.py
-│       └── training_service.py
-├── docker-compose.yml
-├── Dockerfile.dev
-├── LICENSE
-├── prompt.md
-├── prompts
-│   └── prompt.md
-├── README.md
-└── requirements.txt
-----
-
-## app/api/adapters.py
-from fastapi import APIRouter, HTTPException
-from typing import Optional, Dict
-from classes.lora_manager import LoRAManager
-from db.schema.models import TrainingRequest, AdapterConfig
-
-router = APIRouter()
-lora_manager = LoRAManager()
-
-@router.post("/{user_id}/{avatar_id}/create")
-async def create_adapter(user_id: str, avatar_id: str, adapter_name: str = "default") -> AdapterConfig:
-    """Create a new adapter configuration"""
-    """
-    The adapters need to be backed up to the following location:
-    users/{user_id}/avatars/{avatar_id}/adapters/
+[Response](https://grok.com/c/8b35d220-9ce6-487d-9b2b-12b87278c10e)
 
 
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
 
-    """
-
-@router.post("/{user_id}/{avatar_id}/train")
-async def train_adapter(user_id: str, avatar_id: str, training_params: Optional[Dict] = None):
-    """Train a LoRA adapter"""
-    """    There is an individual metadata.json file that is used to determine if a file is used for model finetuning. 
-    That file is located at: users/{user_id}/avatars/{avatar_id}/
-    adapters/metadata/
-     
-    This endpoint should collect the training data as from the s3 bucket if the data is marked as to be used for training in the metadata.json file. It should then train the adapter and update the adapter in s3. If the adapter does not yet exist, it needs to be created, trained, and uploaded to s3. If there are no training documents, the adapter is uploaded to s3 untrained. 
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """
+[Prompt] Verify Adapter Creation: Check the adapter creation process on the nn-adapter-management-local service to ensure adapter_model.safetensors is included in the zip. The zip file size (321 bytes) is suspiciously small, suggesting it may be incomplete.
 
 
-@router.delete("/{user_id}/{avatar_id}")
-async def delete_adapter(user_id: str, avatar_id: str):
-    """Delete an adapter"""
-    """
-    The adapters need to be backed up to the following location:
-    users/{user_id}/avatars/{avatar_id}/adapters/
+The adapters are not creating .safetensor files. 
 
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """    
-
-@router.get("/{user_id}/{avatar_id}")
-async def get_adapter(user_id: str, avatar_id: str):
-    """Get an adapter"""
-    """This endpoint is used to retrieve an adapter. Another fastapi in a separate docker container will call this endpoint to retreive and eventually attach the adapter to a LLM. This endpoint needs to return the adapter from s3. If the adapter does not yet exist, the adapter needs to be created, backedup to s3, and returned.
-    """
-        """
-    The adapters need to be backed up to the following location:
-    users/{user_id}/avatars/{avatar_id}/adapters/
-
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """
-    
-----
-
-## app/api/training_data.py
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
-from fastapi.responses import JSONResponse
-from typing import List, Optional
-from service.s3_service import S3Service
-from db.schema.models import S3UploadRequest, MetadataUpdate, TrainingDataMetadata
-
-router = APIRouter()
-s3_service = S3Service()
-
-@router.post("/{user_id}/{avatar_id}/upload")
-async def upload_training_data(
-    user_id: str,
-    avatar_id: str,
-    file: UploadFile = File(...),
-    use_for_training: bool = Query(True)
-):
-    """Upload training data file"""
-    """When a file is uploaded, the metadata.json dict appends the filename: bool where a value of 'True' indicates that the file is used for model fine-tuning; True is the default value
-    """
-        """
-    There is an individual metadata.json file that is used to determine if a file is used for model finetuning. 
-    That file is located at: users/{user_id}/avatars/{avatar_id}/adapters/metadata/
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """
-
-@router.get("/{user_id}/{avatar_id}/list")
-async def list_training_data(
-    user_id: str,
-    avatar_id: str,
-    training_only: Optional[bool] = Query(None)
-) -> List[TrainingDataMetadata]:
-    """List training data files with optional filtering"""
-        """
-    There is an individual metadata.json file that is used to determine if a file is used for model finetuning. 
-    That file is located at: users/{user_id}/avatars/{avatar_id}/adapters/metadata/
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """
-
-@router.put("/{user_id}/{avatar_id}/{file_name}/training-flag")
-async def update_training_flag(
-    user_id: str,
-    avatar_id: str,
-    file_name: str,
-    update: MetadataUpdate
-):
-    """Update whether a file should be used for training"""
-    """
-    There is an individual metadata.json file that is used to determine if a file is used for model finetuning. 
-    That file is located at: users/{user_id}/avatars/{avatar_id}/adapters/metadata/
-
-    ## S3_persistence Structure:
-This is the S3 Persistence Structure
-users/{user_id}/
-├── vectorstore/                   # User-level vectorstore (chroma_db)
-├── avatars/{avatar_id}/
-│   ├── vectorstore_data/          # Avatar-specific context data (preprocessed);
-|   ├── vectorstore_metadata/ There is a meta datafile dictionary of booleans determining if each vectorstore_data object is used for training
-│   ├── adapters/                  # QLoRA adapter files (the actual Adapter is stored here)
-│   ├── adapters/training_data/    # Training data for fine-tuning (preprocessed for the LoRA Adapter); 
-│   ├── adapters/metadata/    # There is a meta datafile dictionary of booleans determining if each adapters/training_data object is used for training.
-|   ├── media/audio/               # Processed audio (audio only of the target avatar speaking)
-|   ├── media/original             # Unprocessed, original media for a specific avatar (audio/video/images/documents)
-|   ├── media/original/video               # Original video 
-|   ├── media/original/text                # Original text documents 
-|   ├── media/original/audio               # Original audio  
-|   └── media/original/images
-|── image/                         # User-level personal image
-|── *{other_potential_user_level_folders}  # Other potential user-level folders such as billing & account information
-
-    """
-
-@router.delete("/{user_id}/{avatar_id}/non-training-files")
-async def delete_non_training_files(user_id: str, avatar_id: str):
-    """Delete all files not marked for training"""
-
-
-@router.delete("/{user_id}/{avatar_id}/{file_name}")
-async def delete_training_file(user_id: str, avatar_id: str, file_name: str):
-    """Delete a specific training file"""
----
-
-#service/persistence_service.py
-from fastapi import HTTPException
-from classes import AdapterPersistenceManager
-from core.logging import logger
-from core.config import settings
-
-# Global variables to hold managers
-s3_client_instance = None
-
-def get_s3_client():
-    """Dependency function that returns the global S3 client instance"""
-    if s3_client_instance is None:
-        raise HTTPException(500, "S3 client not initialized")
-    return s3_client_instance
-
-
-def get_adapter_persistence_manager(avatar_id: str) -> AdapterPersistenceManager:
-    """Get adapter persistence manager instance with dynamic user_id from environment"""
-    user_id = settings.USER_ID
-    
-    if not user_id:
-        logger.error("USER_ID setting is required")
-        raise HTTPException(
-            status_code=500,
-            detail="USER_ID environment variable is required but not set"
-        )
-    
-    return AdapterPersistenceManager(
-        s3_client=get_s3_client(),
-        settings=settings,
-        user_id=user_id,
-        avatar_id=avatar_id
-    )
-
-
----
+I would like to test the adapter:
 
 # classes/AdapterPersistenceManager.py
 
 from core.logging import logger
 import tempfile
 import zipfile
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import json
 
 from fastapi import HTTPException
 from botocore.exceptions import ClientError
 import os
+
 class AdapterPersistenceManager:
     """Manages persistence operations for LoRA adapters and training data"""
     
@@ -615,75 +275,361 @@ class AdapterPersistenceManager:
             logger.error(f"Error listing adapter backups: {e}")
             raise
 
----
+    async def adapter_exists(self) -> bool:
+        """Check if adapter exists"""
+        try:
+            adapter_key = f"{self._get_s3_adapter_path()}adapter_backup.zip"
+            self.s3_client.head_object(
+                Bucket=self.s3_bucket,
+                Key=adapter_key
+            )
+            return True
+        except Exception as e:
+            logger.debug(f"Adapter check failed (this is normal for new adapters): {e}")
+            return False
 
-# FastAPI LoRA Adapter Management System
-## app/main.py
+    async def create_adapter(self, adapter_name: str = "default") -> Dict[str, Any]:
+        """Create a new adapter configuration"""
+        try:
+            adapter_path = self._get_s3_adapter_path()
+            
+            # Check if adapter already exists
+            if await self.adapter_exists():
+                logger.info(f"Adapter already exists for user {self.user_id}, avatar {self.avatar_id}")
+                return {
+                    "status": "existing",
+                    "message": "Adapter already exists",
+                    "s3_path": adapter_path
+                }
+            
+            # Create new adapter locally then upload
+            with tempfile.TemporaryDirectory() as temp_dir:
+                local_adapter_path = os.path.join(temp_dir, "adapters")
+                os.makedirs(local_adapter_path, exist_ok=True)
+                
+                # Initialize empty adapter structure
+                adapter_config = {
+                    "adapter_name": adapter_name,
+                    "user_id": self.user_id,
+                    "avatar_id": self.avatar_id,
+                    "created_at": datetime.now().isoformat(),
+                    "version": "1.0.0",
+                    "status": "untrained",
+                    "training_history": []
+                }
+                
+                # Save adapter config
+                config_path = os.path.join(local_adapter_path, "adapter_config.json")
+                with open(config_path, 'w') as f:
+                    json.dump(adapter_config, f, indent=2)
+                
+                # Create placeholder adapter files
+                lora_structure = {
+                    "adapter_model.bin": b"",  # Placeholder for actual adapter weights
+                    "adapter_config.json": json.dumps({
+                        "target_modules": ["q_proj", "v_proj"],
+                        "r": 16,
+                        "lora_alpha": 32,
+                        "lora_dropout": 0.1
+                    }).encode()
+                }
+                
+                for filename, content in lora_structure.items():
+                    file_path = os.path.join(local_adapter_path, filename)
+                    with open(file_path, 'wb') as f:
+                        f.write(content)
+                
+                # Backup to S3
+                backup_metadata = await self.backup_adapters_to_s3(local_adapter_path)
+                
+                logger.info(f"Created and backed up new adapter for user {self.user_id}, avatar {self.avatar_id}")
+                
+                return {
+                    "status": "created",
+                    "message": "Adapter created successfully",
+                    "s3_path": adapter_path,
+                    "metadata": backup_metadata
+                }
+                
+        except Exception as e:
+            logger.error(f"Error creating adapter: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to create adapter: {str(e)}")
+
+    async def get_adapter_info(self) -> Dict[str, Any]:
+        """Get adapter information"""
+        try:
+            adapter_path = self._get_s3_adapter_path()
+            
+            if not await self.adapter_exists():
+                return {
+                    "status": "not_found",
+                    "user_id": self.user_id,
+                    "avatar_id": self.avatar_id,
+                    "message": "Adapter does not exist"
+                }
+            
+            # Get adapter metadata
+            metadata_key = f"{adapter_path}backup_metadata.json"
+            try:
+                metadata_obj = self.s3_client.get_object(
+                    Bucket=self.s3_bucket,
+                    Key=metadata_key
+                )
+                metadata = json.loads(metadata_obj['Body'].read().decode('utf-8'))
+            except:
+                metadata = {}
+            
+            # Try to get adapter config
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    local_adapter_path = os.path.join(temp_dir, "adapters")
+                    await self.restore_adapters_from_s3(local_adapter_path)
+                    
+                    config_path = os.path.join(local_adapter_path, "adapter_config.json")
+                    if os.path.exists(config_path):
+                        with open(config_path, 'r') as f:
+                            adapter_config = json.load(f)
+                        metadata["adapter_config"] = adapter_config
+            except:
+                pass
+            
+            return {
+                "status": "found",
+                "user_id": self.user_id,
+                "avatar_id": self.avatar_id,
+                "metadata": metadata
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting adapter info: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to get adapter info: {str(e)}")
+
+    async def delete_adapter(self) -> Dict[str, Any]:
+        """Delete an adapter and all related data"""
+        try:
+            adapter_path = self._get_s3_adapter_path()
+            
+            # List all objects with the adapter prefix
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.s3_bucket,
+                Prefix=adapter_path
+            )
+            
+            if 'Contents' not in response:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No adapter found for user {self.user_id}, avatar {self.avatar_id}"
+                )
+            
+            # Delete all adapter-related objects
+            objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
+            
+            if objects_to_delete:
+                self.s3_client.delete_objects(
+                    Bucket=self.s3_bucket,
+                    Delete={'Objects': objects_to_delete}
+                )
+                
+                logger.info(f"Deleted {len(objects_to_delete)} adapter objects for user {self.user_id}, avatar {self.avatar_id}")
+            
+            return {
+                "status": "success",
+                "message": f"Adapter deleted for user {self.user_id}, avatar {self.avatar_id}",
+                "deleted_objects": len(objects_to_delete)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error deleting adapter: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete adapter: {str(e)}")
+
+    # Training data methods
+    async def upload_training_file(self, filename: str, file_content: bytes, 
+                                 content_type: str = 'application/octet-stream',
+                                 use_for_training: bool = True) -> Dict[str, Any]:
+        """Upload a training data file"""
+        try:
+            training_data_path = self._get_s3_training_data_path()
+            
+            # Upload file to S3
+            file_key = f"{training_data_path}{filename}"
+            
+            self.s3_client.put_object(
+                Bucket=self.s3_bucket,
+                Key=file_key,
+                Body=file_content,
+                ContentType=content_type,
+                Metadata={
+                    'user_id': self.user_id,
+                    'avatar_id': self.avatar_id,
+                    'upload_timestamp': datetime.now().isoformat(),
+                    'original_filename': filename,
+                    'use_for_training': str(use_for_training)
+                }
+            )
+            
+            # Update metadata.json
+            await self._update_training_metadata(filename, use_for_training)
+            
+            logger.info(f"Uploaded training file {filename} for user {self.user_id}, avatar {self.avatar_id}")
+            
+            return {
+                "status": "success",
+                "message": f"File {filename} uploaded successfully",
+                "file_size": len(file_content),
+                "use_for_training": use_for_training,
+                "s3_key": file_key
+            }
+            
+        except Exception as e:
+            logger.error(f"Error uploading training data: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload training data: {str(e)}")
+
+    async def list_training_files(self, training_only: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """List training data files with optional filtering"""
+        try:
+            training_data_path = self._get_s3_training_data_path()
+            
+            # Get metadata
+            training_metadata = await self._get_training_metadata()
+            
+            # List files in training data directory
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.s3_bucket,
+                Prefix=training_data_path
+            )
+            
+            files_list = []
+            
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    # Skip directory-like objects
+                    if obj['Key'].endswith('/'):
+                        continue
+                    
+                    filename = os.path.basename(obj['Key'])
+                    use_for_training = training_metadata.get(filename, False)
+                    
+                    # Apply training_only filter
+                    if training_only is not None:
+                        if training_only and not use_for_training:
+                            continue
+                        elif not training_only and use_for_training:
+                            continue
+                    
+                    # Get file metadata from S3 object metadata
+                    try:
+                        head_response = self.s3_client.head_object(
+                            Bucket=self.s3_bucket,
+                            Key=obj['Key']
+                        )
+                        file_metadata = head_response.get('Metadata', {})
+                    except:
+                        file_metadata = {}
+                    
+                    files_list.append({
+                        "filename": filename,
+                        "use_for_training": use_for_training,
+                        "file_size": obj['Size'],
+                        "last_modified": obj['LastModified'],
+                        "content_type": file_metadata.get('content-type', 'unknown'),
+                        "upload_timestamp": file_metadata.get('upload_timestamp'),
+                        "s3_key": obj['Key']
+                    })
+            
+            logger.info(f"Listed {len(files_list)} training data files for user {self.user_id}, avatar {self.avatar_id}")
+            
+            return files_list
+            
+        except Exception as e:
+            logger.error(f"Error listing training data: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to list training data: {str(e)}")
+
+    async def get_training_files_for_training(self) -> List[str]:
+        """Get list of files marked for training"""
+        try:
+            training_metadata = await self._get_training_metadata()
+            return [filename for filename, use_for_training in training_metadata.items() if use_for_training]
+        except Exception as e:
+            logger.warning(f"Error getting training files: {e}")
+            return []
+
+    # Helper methods
+    async def _get_training_metadata(self) -> Dict[str, bool]:
+        """Get training metadata from S3"""
+        metadata_key = f"{self._get_s3_metadata_path()}metadata.json"
+        
+        try:
+            metadata_obj = self.s3_client.get_object(
+                Bucket=self.s3_bucket,
+                Key=metadata_key
+            )
+            return json.loads(metadata_obj['Body'].read().decode('utf-8'))
+        except:
+            return {}
+
+    async def _update_training_metadata(self, filename: str, use_for_training: bool) -> None:
+        """Update training metadata for a specific file"""
+        metadata = await self._get_training_metadata()
+        metadata[filename] = use_for_training
+        
+        metadata_key = f"{self._get_s3_metadata_path()}metadata.json"
+        self.s3_client.put_object(
+            Bucket=self.s3_bucket,
+            Key=metadata_key,
+            Body=json.dumps(metadata, indent=2),
+            ContentType='application/json'
+        )
+
+----
+
+# app/main.py
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
 from contextlib import asynccontextmanager
-import uvicorn
-import boto3
 
 from core.config import settings
-
 # Import your existing routers
 from api import adapters, training_data, persistence
 from core.logging import logger
 from service.persistence_service import (
-    s3_client_instance, 
-    get_s3_client, 
+    initialize_s3_client,
+    get_s3_client,
 )
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global s3_client_instance
-    
     # Startup
     logger.info("Application startup - Initializing S3 and settings")
     
-    # Get settings and validate required fields
-    # settings are initialized on startup
-
+    # Validate required settings first
     user_id = settings.USER_ID
     if not user_id:
         logger.error("USER_ID setting is required")
         raise RuntimeError("USER_ID setting is required")
-    
+
     logger.info(f"Starting Adapter Management API for user: {user_id}")
     logger.info(f"App: LoRA Adapter Management API v1.0.0")
     
-    # Validate required settings
     if not settings.s3_bucket_name:
         logger.error("S3_BUCKET_NAME is required")
         raise RuntimeError("S3_BUCKET_NAME environment variable is required")
     
-    # Initialize S3 client with error handling
+    # Initialize S3 client using the service function
     try:
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
-            region_name=settings.aws_region
-        )
-        # Test S3 connection
-        s3_client.head_bucket(Bucket=settings.s3_bucket_name)
-        logger.info(f"S3 connection successful to bucket: {settings.s3_bucket_name}")
-        s3_client_instance = s3_client
+        s3_client = initialize_s3_client()
+        logger.info(f"Adapter persistence configured for user: {user_id}")
+        logger.info(f"S3 bucket: {settings.s3_bucket_name}")
     except Exception as e:
-        logger.error(f"Failed to initialize S3 client: {e}")
+        logger.error(f"Failed to initialize S3 client during startup: {e}")
         raise RuntimeError(f"S3 initialization failed: {e}")
-    
-    logger.info(f"Adapter persistence configured for user: {user_id}")
-    logger.info(f"S3 bucket: {settings.s3_bucket_name}")
     
     yield
     
     # Shutdown
     logger.info("Application shutdown - Cleaning up resources")
-    s3_client_instance = None
+    # The s3_client_instance will be cleaned up automatically
     logger.info("Cleanup completed")
 
 app = FastAPI(
@@ -718,8 +664,8 @@ async def health_check():
         s3_status = "connected"
         try:
             s3_client.head_bucket(Bucket=settings.s3_bucket_name)
-        except Exception:
-            s3_status = "disconnected"
+        except Exception as e:
+            s3_status = f"disconnected: {str(e)}"
         
         return {
             "status": "healthy",
@@ -728,6 +674,7 @@ async def health_check():
             "user_id": settings.USER_ID
         }
     except Exception as e:
+        logger.error(f"Health check failed: {e}")
         return {
             "status": "unhealthy",
             "error": str(e)
@@ -737,5 +684,390 @@ async def health_check():
 async def root(request: Request):
     return RedirectResponse(url=f"{request.scope.get('root_path', '')}/docs")
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+----
+
+# api/adapters.py - Final Simplified Version
+
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
+from typing import Optional, Dict, Any
+import tempfile
+import json
+from datetime import datetime
+
+from db.schema.models import TrainingRequest, AdapterConfig
+from service.persistence_service import get_adapter_persistence_manager
+from service.training_service import TrainingService
+from core.logging import logger
+
+router = APIRouter()
+training_service = TrainingService()
+
+@router.post("/{user_id}/{avatar_id}/create")
+async def create_adapter(
+    user_id: str, 
+    avatar_id: str, 
+    adapter_name: str = "default"
+) -> AdapterConfig:
+    """Create a new adapter configuration"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use centralized create method
+        result = await persistence_manager.create_adapter(adapter_name)
+        
+        return AdapterConfig(
+            user_id=user_id,
+            avatar_id=avatar_id,
+            adapter_name=adapter_name,
+            status=result["status"],
+            created_at=datetime.now(),
+            s3_path=result["s3_path"],
+            metadata=result.get("metadata")
+        )
+            
+    except Exception as e:
+        logger.error(f"Error creating adapter: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create adapter: {str(e)}")
+
+@router.post("/{user_id}/{avatar_id}/train")
+async def train_adapter(
+    user_id: str, 
+    avatar_id: str, 
+    training_params: Optional[Dict] = None
+):
+    """Train a LoRA adapter using centralized persistence manager"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use enhanced training service with persistence manager
+        result = await training_service.train_with_persistence_manager(
+            persistence_manager=persistence_manager,
+            training_params=training_params or {}
+        )
+        
+        return {
+            "status": "success" if result["success"] else "failed",
+            "message": result["message"],
+            "training_result": result
+        }
+            
+    except Exception as e:
+        logger.error(f"Error training adapter: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to train adapter: {str(e)}")
+
+@router.delete("/{user_id}/{avatar_id}")
+async def delete_adapter(user_id: str, avatar_id: str):
+    """Delete an adapter"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use centralized delete method
+        result = await persistence_manager.delete_adapter()
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error deleting adapter: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete adapter: {str(e)}")
+
+@router.get("/{user_id}/{avatar_id}")
+async def get_adapter(user_id: str, avatar_id: str):
+    """Get an adapter - returns adapter file for download or creates new one if doesn't exist"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Check if adapter exists using centralized method
+        if not await persistence_manager.adapter_exists():
+            logger.info(f"No existing adapter found for user {user_id}, avatar {avatar_id}, creating new one")
+            await persistence_manager.create_adapter()
+        
+        # Download adapter backup
+        adapter_key = f"{persistence_manager._get_s3_adapter_path()}adapter_backup.zip"
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+            persistence_manager.s3_client.download_file(
+                persistence_manager.s3_bucket,
+                adapter_key,
+                temp_file.name
+            )
+            
+            # Get adapter metadata
+            try:
+                metadata_key = f"{persistence_manager._get_s3_adapter_path()}backup_metadata.json"
+                metadata_obj = persistence_manager.s3_client.get_object(
+                    Bucket=persistence_manager.s3_bucket,
+                    Key=metadata_key
+                )
+                metadata = json.loads(metadata_obj['Body'].read().decode('utf-8'))
+            except:
+                metadata = {}
+            
+            logger.info(f"Retrieved adapter for user {user_id}, avatar {avatar_id}")
+            
+            return FileResponse(
+                path=temp_file.name,
+                filename=f"adapter_{user_id}_{avatar_id}.zip",
+                media_type="application/zip",
+                headers={
+                    "X-Adapter-Metadata": json.dumps(metadata),
+                    "X-User-ID": user_id,
+                    "X-Avatar-ID": avatar_id
+                }
+            )
+        
+    except Exception as e:
+        logger.error(f"Error getting adapter: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get adapter: {str(e)}")
+
+@router.get("/{user_id}/{avatar_id}/info")
+async def get_adapter_info(user_id: str, avatar_id: str):
+    """Get adapter information without downloading the file"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use centralized info method
+        return await persistence_manager.get_adapter_info()
+        
+    except Exception as e:
+        logger.error(f"Error getting adapter info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get adapter info: {str(e)}")
+
+@router.get("/{user_id}/{avatar_id}/training-recommendations")
+async def get_training_recommendations(user_id: str, avatar_id: str):
+    """Get training parameter recommendations based on available data"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use enhanced training service with persistence manager
+        recommendations = await training_service.get_training_recommendations_with_persistence(
+            persistence_manager=persistence_manager
+        )
+        
+        return recommendations
+        
+    except Exception as e:
+        logger.error(f"Error getting training recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get training recommendations: {str(e)}")
+
+@router.get("/{user_id}/{avatar_id}/validate-training-data")
+async def validate_training_data(user_id: str, avatar_id: str):
+    """Validate training data for an avatar"""
+    try:
+        persistence_manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Use enhanced training service with persistence manager
+        validation = await training_service.validate_training_data_with_persistence(
+            persistence_manager=persistence_manager
+        )
+        
+        return validation
+        
+    except Exception as e:
+        logger.error(f"Error validating training data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to validate training data: {str(e)}")
+
+---
+
+# api/persistence.py
+
+"""
+Streamlined Adapter Persistence API router - now only handles backup/restore operations
+All CRUD operations are handled through the main adapters and training_data APIs
+"""
+from fastapi import APIRouter, HTTPException, status
+
+from db.schema.models import (
+    AdapterBackupResponse, 
+    AdapterListBackupsResponse, 
+    AdapterRestoreResponse,
+)
+
+from service.persistence_service import get_adapter_persistence_manager
+from core.logging import logger
+
+router = APIRouter()
+
+@router.post("/adapters/backup/{avatar_id}",
+    response_model=AdapterBackupResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Backup adapters to S3",
+    description="Create a backup of LoRA adapter files and upload to S3"
+)
+async def backup_adapters_to_s3(
+    avatar_id: str,
+    local_adapter_path: str
+):
+    """Backup adapter files to S3 - typically used internally by the system"""
+    try:
+        manager = get_adapter_persistence_manager(avatar_id)
+        backup_info = await manager.backup_adapters_to_s3(local_adapter_path)
+        
+        return AdapterBackupResponse(
+            success=True,
+            message=f"Successfully backed up adapters for user {manager.user_id}, avatar {avatar_id}",
+            backup_info=backup_info
+        )
+    except Exception as e:
+        logger.error(f"Error backing up adapters: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to backup adapters: {str(e)}"
+        )
+
+@router.post("/adapters/restore/{avatar_id}",
+    response_model=AdapterRestoreResponse,
+    summary="Restore adapters from S3",
+    description="Restore LoRA adapter files from S3 backup"
+)
+async def restore_adapters_from_s3(
+    avatar_id: str,
+    local_adapter_path: str
+):
+    """Restore adapter files from S3 - typically used internally by the system"""
+    try:
+        manager = get_adapter_persistence_manager(avatar_id)
+        await manager.restore_adapters_from_s3(local_adapter_path)
+        
+        return AdapterRestoreResponse(
+            success=True,
+            message=f"Successfully restored adapters for user {manager.user_id}, avatar {avatar_id}"
+        )
+    except Exception as e:
+        logger.error(f"Error restoring adapters: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restore adapters: {str(e)}"
+        )
+
+@router.get("/adapters/backups/{avatar_id}",
+    response_model=AdapterListBackupsResponse,
+    summary="List available adapter backups",
+    description="List all available adapter backups for the avatar"
+)
+async def list_adapter_backups(
+    avatar_id: str
+):
+    """List available adapter backups"""
+    try:
+        manager = get_adapter_persistence_manager(avatar_id)
+        backups = await manager.list_adapter_backups()
+        
+        return AdapterListBackupsResponse(
+            backups=backups,
+            count=len(backups)
+        )
+    except Exception as e:
+        logger.error(f"Error listing adapter backups: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list adapter backups: {str(e)}"
+        )
+
+@router.get("/adapters/status/{avatar_id}",
+    summary="Get adapter persistence status",
+    description="Get the status of S3 connectivity and adapter backup information"
+)
+async def get_adapter_persistence_status(
+    avatar_id: str
+):
+    """Get adapter persistence status"""
+    try:
+        manager = get_adapter_persistence_manager(avatar_id)
+        
+        # Test S3 connectivity
+        s3_status = "connected"
+        try:
+            manager.s3_client.head_bucket(Bucket=manager.s3_bucket)
+        except Exception:
+            s3_status = "disconnected"
+        
+        # Check if backups exist
+        adapter_backup_exists = await manager.adapter_exists()
+        
+        return {
+            "s3_status": s3_status,
+            "s3_bucket": manager.s3_bucket,
+            "adapter_backup_path": f"s3://{manager.s3_bucket}/{manager._get_s3_adapter_path()}",
+            "training_data_backup_path": f"s3://{manager.s3_bucket}/{manager._get_s3_training_data_path()}",
+            "adapter_backup_exists": adapter_backup_exists,
+            "user_id": manager.user_id,
+            "avatar_id": avatar_id
+        }
+    except Exception as e:
+        logger.error(f"Error getting adapter persistence status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get adapter persistence status: {str(e)}"
+        )
+
+---
+
+# service/persistence_service.py
+
+import boto3
+from fastapi import HTTPException
+from classes.AdapterPersistenceManager import AdapterPersistenceManager
+from core.logging import logger
+from core.config import settings
+
+# Global variables to hold managers
+s3_client_instance = None
+
+def initialize_s3_client():
+    """Initialize S3 client - called during app startup"""
+    global s3_client_instance
+    
+    try:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+            region_name=settings.aws_region
+        )
+        # Test S3 connection
+        s3_client.head_bucket(Bucket=settings.s3_bucket_name)
+        logger.info(f"S3 connection successful to bucket: {settings.s3_bucket_name}")
+        s3_client_instance = s3_client
+        return s3_client
+    except Exception as e:
+        logger.error(f"Failed to initialize S3 client: {e}")
+        raise RuntimeError(f"S3 initialization failed: {e}")
+
+def get_s3_client():
+    """Dependency function that returns the global S3 client instance"""
+    global s3_client_instance
+    
+    if s3_client_instance is None:
+        # Try to initialize if not already done
+        logger.warning("S3 client not initialized, attempting to initialize now")
+        try:
+            return initialize_s3_client()
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 client on demand: {e}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"S3 client not initialized: {str(e)}"
+            )
+    
+    return s3_client_instance
+
+def get_adapter_persistence_manager(avatar_id: str) -> AdapterPersistenceManager:
+    """Get adapter persistence manager instance with dynamic user_id from environment"""
+    user_id = settings.USER_ID
+    
+    if not user_id:
+        logger.error("USER_ID setting is required")
+        raise HTTPException(
+            status_code=500,
+            detail="USER_ID environment variable is required but not set"
+        )
+    
+    # Get S3 client with proper error handling
+    s3_client = get_s3_client()
+    
+    return AdapterPersistenceManager(
+        s3_client=s3_client,
+        settings=settings,
+        user_id=user_id,
+        avatar_id=avatar_id
+    )
