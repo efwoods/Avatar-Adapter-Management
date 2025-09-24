@@ -41,6 +41,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize S3 client during startup: {e}")
         raise RuntimeError(f"S3 initialization failed: {e}")
     
+    # Login to Huggingface
+    from huggingface_hub import login
+    if settings.HF_TOKEN:
+        login(token=settings.HF_TOKEN)
+        logger.info("Logged into Hugging Face Hub for model download.")
+    
     yield
     
     # Shutdown
@@ -99,6 +105,3 @@ async def health_check():
 @app.get("/", tags=["📖 Documentation"])
 async def root(request: Request):
     return RedirectResponse(url=f"{request.scope.get('root_path', '')}/docs")
-
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -129,3 +129,4 @@ async def get_adapter_persistence_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get adapter persistence status: {str(e)}"
         )
+    

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
     
     USER_ID: str
+    HF_TOKEN: str
     
     class Config:
         env_file = ".env"

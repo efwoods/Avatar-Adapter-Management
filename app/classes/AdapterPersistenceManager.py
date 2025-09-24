@@ -10,6 +10,8 @@ import json
 from fastapi import HTTPException
 from botocore.exceptions import ClientError
 import os
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
 class AdapterPersistenceManager:
     """Manages persistence operations for LoRA adapters and training data"""
@@ -20,6 +22,7 @@ class AdapterPersistenceManager:
         self.user_id = user_id
         self.avatar_id = avatar_id
         self.s3_bucket = settings.s3_bucket_name
+        self.HF_TOKEN = settings.HF_token
         
     def _get_s3_adapter_path(self) -> str:
         """Get S3 path for adapters"""
@@ -277,11 +280,20 @@ class AdapterPersistenceManager:
             logger.debug(f"Adapter check failed (this is normal for new adapters): {e}")
             return False
 
-    async def create_adapter(self, adapter_name: str = "default") -> Dict[str, Any]:
-        """Create a new adapter configuration"""
+    # import os
+    # import json
+    # import tempfile
+    # from datetime import datetime
+    # import logging
+    # from typing import Dict, Any
+    # from fastapi import HTTPException
+    # logger = logging.getLogger(__name__)
+
+    async def create_adapter(self, adapter_name: str = "default", model_name: str = "meta-llama/Llama-3.2-1B-Instruct") -> Dict[str, Any]:
+        """Create and save a new LoRA adapter configuration and weights."""
         try:
             adapter_path = self._get_s3_adapter_path()
-            
+
             # Check if adapter already exists
             if await self.adapter_exists():
                 logger.info(f"Adapter already exists for user {self.user_id}, avatar {self.avatar_id}")
@@ -290,13 +302,13 @@ class AdapterPersistenceManager:
                     "message": "Adapter already exists",
                     "s3_path": adapter_path
                 }
-            
+
             # Create new adapter locally then upload
             with tempfile.TemporaryDirectory() as temp_dir:
                 local_adapter_path = os.path.join(temp_dir, "adapters")
                 os.makedirs(local_adapter_path, exist_ok=True)
-                
-                # Initialize empty adapter structure
+
+                # Initialize adapter metadata
                 adapter_config = {
                     "adapter_name": adapter_name,
                     "user_id": self.user_id,
@@ -304,45 +316,59 @@ class AdapterPersistenceManager:
                     "created_at": datetime.now().isoformat(),
                     "version": "1.0.0",
                     "status": "untrained",
-                    "training_history": []
+                    "training_history": [],
+                    "model_name": model_name
                 }
-                
-                # Save adapter config
-                config_path = os.path.join(local_adapter_path, "adapter_config.json")
-                with open(config_path, 'w') as f:
+
+                # Save adapter metadata
+                config_path = os.path.join(local_adapter_path, "adapter_metadata.json")
+                with open(config_path, "w") as f:
                     json.dump(adapter_config, f, indent=2)
-                
-                # Create placeholder adapter files
-                lora_structure = {
-                    "adapter_model.bin": b"",  # Placeholder for actual adapter weights
-                    "adapter_config.json": json.dumps({
-                        "target_modules": ["q_proj", "v_proj"],
-                        "r": 16,
-                        "lora_alpha": 32,
-                        "lora_dropout": 0.1
-                    }).encode()
-                }
-                
-                for filename, content in lora_structure.items():
-                    file_path = os.path.join(local_adapter_path, filename)
-                    with open(file_path, 'wb') as f:
-                        f.write(content)
-                
+
+                # Load base model and tokenizer
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="auto", 
+                    token=self.HF_TOKEN
+                )
+                tokenizer = AutoTokenizer.from_pretrained(model_name, token=self.HF_TOKEN)
+                tokenizer.pad_token = tokenizer.eos_token
+
+                # Prepare model for training
+                model = prepare_model_for_kbit_training(model)
+
+                # Create LoRA config
+                lora_config = LoraConfig(
+                    r=16,
+                    lora_alpha=32,
+                    target_modules=["q_proj", "v_proj"],
+                    lora_dropout=0.1,
+                    bias="none",
+                    task_type="CAUSAL_LM"
+                )
+
+                # Attach and initialize LoRA adapter
+                peft_model = get_peft_model(model, lora_config)
+
+                # Save untrained adapter
+                peft_model.save_pretrained(local_adapter_path)
+
                 # Backup to S3
                 backup_metadata = await self.backup_adapters_to_s3(local_adapter_path)
-                
+
                 logger.info(f"Created and backed up new adapter for user {self.user_id}, avatar {self.avatar_id}")
-                
+
                 return {
                     "status": "created",
                     "message": "Adapter created successfully",
                     "s3_path": adapter_path,
                     "metadata": backup_metadata
                 }
-                
+
         except Exception as e:
             logger.error(f"Error creating adapter: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to create adapter: {str(e)}")
+
 
     async def get_adapter_info(self) -> Dict[str, Any]:
         """Get adapter information"""
