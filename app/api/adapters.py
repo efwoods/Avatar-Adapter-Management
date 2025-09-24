@@ -89,41 +89,77 @@ async def get_adapter(user_id: str, avatar_id: str):
         # Check if adapter exists using centralized method
         if not await persistence_manager.adapter_exists():
             logger.info(f"No existing adapter found for user {user_id}, avatar {avatar_id}, creating new one")
-            await persistence_manager.create_adapter()
-        
-        # Download adapter backup
-        adapter_key = f"{persistence_manager._get_s3_adapter_path()}adapter_backup.zip"
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
-            persistence_manager.s3_client.download_file(
-                persistence_manager.s3_bucket,
-                adapter_key,
-                temp_file.name
-            )
-            
-            # Get adapter metadata
-            try:
-                metadata_key = f"{persistence_manager._get_s3_adapter_path()}backup_metadata.json"
-                metadata_obj = persistence_manager.s3_client.get_object(
-                    Bucket=persistence_manager.s3_bucket,
-                    Key=metadata_key
+            result = await persistence_manager.create_adapter()
+
+            # Download adapter backup
+            adapter_key = f"{persistence_manager._get_s3_adapter_path()}adapter_backup.zip"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+                persistence_manager.s3_client.download_file(
+                    persistence_manager.s3_bucket,
+                    adapter_key,
+                    temp_file.name
                 )
-                metadata = json.loads(metadata_obj['Body'].read().decode('utf-8'))
-            except:
-                metadata = {}
-            
-            logger.info(f"Retrieved adapter for user {user_id}, avatar {avatar_id}")
-            
-            return FileResponse(
-                path=temp_file.name,
-                filename=f"adapter_{user_id}_{avatar_id}.zip",
-                media_type="application/zip",
-                headers={
-                    "X-Adapter-Metadata": json.dumps(metadata),
-                    "X-User-ID": user_id,
-                    "X-Avatar-ID": avatar_id
-                }
-            )
+
+                # Get adapter metadata
+                try:
+                    metadata_key = f"{persistence_manager._get_s3_adapter_path()}backup_metadata.json"
+                    metadata_obj = persistence_manager.s3_client.get_object(
+                        Bucket=persistence_manager.s3_bucket,
+                        Key=metadata_key
+                    )
+                    metadata = json.loads(metadata_obj['Body'].read().decode('utf-8'))
+                except:
+                    metadata = {}
+
+                logger.info(f"Retrieved adapter for user {user_id}, avatar {avatar_id}")
+
+                return FileResponse(
+                    path=temp_file.name,
+                    filename=f"adapter_{user_id}_{avatar_id}.zip",
+                    media_type="application/zip",
+                    headers={
+                        "X-Adapter-Metadata": json.dumps(metadata),
+                        "X-User-ID": user_id,
+                        "X-Avatar-ID": avatar_id
+                    }
+                )
+
+
+        else:
+            # Download adapter backup
+            adapter_key = f"{persistence_manager._get_s3_adapter_path()}adapter_backup.zip"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+                persistence_manager.s3_client.download_file(
+                    persistence_manager.s3_bucket,
+                    adapter_key,
+                    temp_file.name
+                )
+
+                # Get adapter metadata
+                try:
+                    metadata_key = f"{persistence_manager._get_s3_adapter_path()}backup_metadata.json"
+                    metadata_obj = persistence_manager.s3_client.get_object(
+                        Bucket=persistence_manager.s3_bucket,
+                        Key=metadata_key
+                    )
+                    metadata = json.loads(metadata_obj['Body'].read().decode('utf-8'))
+                except:
+                    metadata = {}
+
+                logger.info(f"Retrieved adapter for user {user_id}, avatar {avatar_id}")
+
+                return FileResponse(
+                    path=temp_file.name,
+                    filename=f"adapter_{user_id}_{avatar_id}.zip",
+                    media_type="application/zip",
+                    headers={
+                        "X-Adapter-Metadata": json.dumps(metadata),
+                        "X-User-ID": user_id,
+                        "X-Avatar-ID": avatar_id
+                    }
+                )
         
     except Exception as e:
         logger.error(f"Error getting adapter: {e}")
