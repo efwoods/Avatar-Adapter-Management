@@ -22,7 +22,7 @@ class AdapterPersistenceManager:
         self.user_id = user_id
         self.avatar_id = avatar_id
         self.s3_bucket = settings.s3_bucket_name
-        self.HF_TOKEN = settings.HF_token
+        self.HF_TOKEN = settings.HF_TOKEN
         
     def _get_s3_adapter_path(self) -> str:
         """Get S3 path for adapters"""
@@ -289,7 +289,7 @@ class AdapterPersistenceManager:
     # from fastapi import HTTPException
     # logger = logging.getLogger(__name__)
 
-    async def create_adapter(self, adapter_name: str = "default", model_name: str = "meta-llama/Llama-3.2-1B-Instruct") -> Dict[str, Any]:
+    async def create_adapter(self, model_name: str = "meta-llama/Llama-3.2-1B-Instruct") -> Dict[str, Any]:
         """Create and save a new LoRA adapter configuration and weights."""
         try:
             adapter_path = self._get_s3_adapter_path()
@@ -310,8 +310,6 @@ class AdapterPersistenceManager:
 
                 # Initialize adapter metadata
                 adapter_config = {
-                    "adapter_name": adapter_name,
-                    "user_id": self.user_id,
                     "avatar_id": self.avatar_id,
                     "created_at": datetime.now().isoformat(),
                     "version": "1.0.0",

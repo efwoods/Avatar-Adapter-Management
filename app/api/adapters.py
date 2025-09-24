@@ -19,19 +19,17 @@ training_service = TrainingService()
 async def create_adapter(
     user_id: str, 
     avatar_id: str, 
-    adapter_name: str = "default"
 ) -> AdapterConfig:
     """Create a new adapter configuration"""
     try:
         persistence_manager = get_adapter_persistence_manager(avatar_id)
         
         # Use centralized create method
-        result = await persistence_manager.create_adapter(adapter_name)
+        result = await persistence_manager.create_adapter()
         
         return AdapterConfig(
             user_id=user_id,
             avatar_id=avatar_id,
-            adapter_name=adapter_name,
             status=result["status"],
             created_at=datetime.now(),
             s3_path=result["s3_path"],
