@@ -327,9 +327,16 @@ class AdapterPersistenceManager:
                 model = AutoModelForCausalLM.from_pretrained(
                     model_name,
                     device_map="auto", 
-                    token=self.HF_TOKEN
+                    token=self.HF_TOKEN,
+                    local_files_only=True,  # ADD THIS - forces use of cached model
+                    cache_dir=os.getenv('TRANSFORMERS_CACHE')  # ADD THIS - explicit cache location
                 )
-                tokenizer = AutoTokenizer.from_pretrained(model_name, token=self.HF_TOKEN)
+                tokenizer = AutoTokenizer.from_pretrained(
+                    model_name, 
+                    token=self.HF_TOKEN,
+                    local_files_only=True,  # ADD THIS - forces use of cached model
+                    cache_dir=os.getenv('TRANSFORMERS_CACHE')  # ADD THIS - explicit cache location)
+                )
                 tokenizer.pad_token = tokenizer.eos_token
 
                 # Prepare model for training

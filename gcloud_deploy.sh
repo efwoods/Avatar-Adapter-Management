@@ -1,0 +1,11 @@
+gcloud run deploy test-adapter \
+    --image=us.gcr.io/neuralnexus-467517/nn-avatar-adapter-management:latest \
+    --service-account=cloud-run-deployer@neuralnexus-467517.iam.gserviceaccount.com \
+    --region=us-central1 \
+    --cpu=1 \
+    --memory=2Gi \
+    --max-instances=1 \
+    --timeout=900 \
+    --allow-unauthenticated \
+    --set-env-vars=PYTHONUNBUFFERED=1 \
+    --project=neuralnexus-467517

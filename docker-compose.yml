@@ -4,12 +4,10 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.dev
-    image: nn-avatar-adapter-management
+    image: evdev3/nn-avatar-adapter-management
     container_name: nn-avatar-adapter-management
     ports:
       - "8090:8090"
-    volumes:
-      - ./app:/app
     env_file:
       - .env
     command: uvicorn main:app --host 0.0.0.0 --port 8090 --reload

@@ -40,13 +40,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize S3 client during startup: {e}")
         raise RuntimeError(f"S3 initialization failed: {e}")
-    
-    # Login to Huggingface
-    from huggingface_hub import login
-    if settings.HF_TOKEN:
-        login(token=settings.HF_TOKEN)
-        logger.info("Logged into Hugging Face Hub for model download.")
-    
+        
     yield
     
     # Shutdown
