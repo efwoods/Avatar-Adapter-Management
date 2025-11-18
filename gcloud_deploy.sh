@@ -7,5 +7,6 @@ gcloud run deploy test-adapter \
     --max-instances=1 \
     --timeout=900 \
     --allow-unauthenticated \
-    --set-env-vars=PYTHONUNBUFFERED=1 \
+    --set-env-vars=USER_ID=test-user,PYTHONUNBUFFERED=1 \
+    --set-secrets=HF_TOKEN=HF_TOKEN:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,S3_BUCKET_NAME=S3_BUCKET_NAME:latest,APP_ENV=APP_ENV:latest,DEBUG=DEBUG:latest,CHROMA_PERSIST_DIRECTORY=CHROMA_PERSIST_DIRECTORY:latest,EMBEDDING_MODEL=EMBEDDING_MODEL:latest,MAX_BATCH_SIZE=MAX_BATCH_SIZE:latest \
     --project=neuralnexus-467517
