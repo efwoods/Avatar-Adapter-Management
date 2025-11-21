@@ -23,3 +23,4 @@ Any old DVDs “behind the scenes” commentary tracks
 
 Collect everything she ever said in first person → paste into one giant .txt → you’ll hit 80K–150K easily → adapter will be flawless.
 Bottom line: Aim for at least 60,000 characters of real first-person speech. Below 25K it’s hit-or-miss; above 60K it’s spooky-how-good.
+
