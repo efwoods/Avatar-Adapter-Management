@@ -1,1 +1,1 @@
-docker run -p 8080:8080 --env-file .env  -e PORT=8080  evdev3/nn-avatar-adapter-management:latest
+docker run -p 8090:8080 --env-file .env docker.io/evdev3/nn-avatar-adapter-management:latest

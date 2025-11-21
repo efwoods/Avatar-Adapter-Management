@@ -1,1 +1,1 @@
-docker buildx build --no-cache --platform linux/amd64 --build-arg HF_TOKEN=$(grep HF_TOKEN .env | cut -d '=' -f2) -f Dockerfile -t docker.io/evdev3/nn-avatar-adapter-management:latest .
+docker buildx build  --no-cache --platform linux/amd64 --build-arg HF_TOKEN=$(grep HF_TOKEN .env | cut -d '=' -f2) -f Dockerfile -t docker.io/evdev3/nn-avatar-adapter-management:latest --load .

@@ -43,4 +43,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
 # Run with uvicorn in production mode
-CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
+CMD exec uvicorn main:app --host 0.0.0.0 --port 8080 --workers 1
